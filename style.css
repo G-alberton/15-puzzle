@@ -1,0 +1,41 @@
+body {
+  font-family: Arial, sans-serif;
+  background: #111;
+  color: #eee;
+  text-align: center;
+}
+
+.board {
+  display: grid;
+  grid-template-columns: repeat(4, 70px);
+  gap: 5px;
+  justify-content: center;
+  margin: 20px auto;
+}
+
+.tile {
+  width: 70px;
+  height: 70px;
+  background: #222;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 20px;
+  border-radius: 6px;
+}
+
+.tile:hover {
+  background: #333;
+}
+
+.empty {
+  background: #000;
+  cursor: default;
+}
+
+.controls button {
+  margin: 5px;
+  padding: 10px 15px;
+  cursor: pointer;
+}
