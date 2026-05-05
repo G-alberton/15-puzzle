@@ -1,25 +1,79 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>numpuz</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Numpuz</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  
+  <div class="app">
 
-<h1>numpuz</h1>
+    <header class="header">
+      <div class="header-left">
+        <h1>Numpuz</h1>
+        <span class="algo-badge">IDA* + PDB</span>
+      </div>
+      <div class="clock-wrap">
+        <div class="clock" id="clock">00:00.0</div>
+        <div class="clock-label">tempo </div>
+      </div>
+    </header>
 
-<div class="board" id="board"></div>
+    <div class="stats">
+      <div class="stat-item">
+        <span id="stat-moves">0</span>
+        <label>Jogadas</label>
+      </div>
+      <div class="stat-sep"></div>
+      <div class="stat-item">
+        <span id="stat-h">-</span>
+        <label>Heurística</label>
+      </div>
+      <div class="stat-sep"></div>
+      <div class="stat-item">
+        <span id="stat-ai">-</span>
+        <label>Passos IA</label>
+      </div>
+      <div class="stat-sep"></div>
+      <div class="stat-item">
+        <span id="stat-mode">Jogo</span>
+        <label>modo</label>
+      </div>
+    </div>
 
-<div class="controls">
-  <button id="btn-new">Novo</button>
-  <button id="btn-solve">Resolver</button>
-  <button id="btn-stop">Parar</button>
-</div>
+    <div class="selector-wrap hidden" id="selector-wrap">
+      <div class="selector-label">Selecione o numero para colocar no tabuleiro</div>
+      <div class="selector" id="selector"></div>
+    </div>
 
-<p id="info"></p>
-<p id="path"></p>
+    <div class="board" id="board"></div>
 
-<script src="taldaia.js"></script>
+    <div class="progress-track" id="progress-track">
+      <div class="progress-fill" id="progress-fill"></div>
+      <span class="progress-label" id="progress-label"></span>
+    </div>
+
+    <p class="message" id="message"></p>
+
+    <div class="controls">
+      <button id="btn-random">Aleatório</button>
+      <button id="btn-edit">Montar</button>
+      <button id="btn-clear" class="hidden">Limpar</button>
+      <button id="btn-confirm" class="primary hidden">Confirmar</button>
+      <button id="btn-solve">Resolver</button>
+      <button id="btn-stop" class="hidden danger">Parar</button>
+    </div>
+
+    <div class="path-wrap hidden" id="path-wrap">
+      <div class="path-label">Sequencia da IA</div>
+      <div class="path" id="path"></div>
+    </div>
+
+  </div>
+  <script src="script.js"></script>
 </body>
 </html>
