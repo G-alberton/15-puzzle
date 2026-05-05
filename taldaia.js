@@ -508,3 +508,28 @@ function animateSolution(moves) {
     i++;
   }, 120);
 }
+
+function updateStats() {
+  document.getElementById('stat-moves').textContent = moveCount;
+  document.getElementById('stat-mode').textContent  = isEditMode ? 'edição' : 'jogo';
+  document.getElementById('stat-h').textContent     = isEditMode ? '—' : manhattan(board);
+}
+
+function setMessage(text, type = 'info') {
+  const el = document.getElementById('message');
+  el.textContent = text;
+  el.className   = 'message ' + type;
+}
+
+function setSolverUI(solving) {
+  document.getElementById('btn-solve').disabled = solving;
+  document.getElementById('btn-stop').classList.toggle('hidden', !solving);
+}
+
+function showProgress(show) {
+  document.getElementById('progress-track').classList.toggle('active', show);
+  if (!show) {
+    document.getElementById('progress-fill').style.width = '0%';
+    document.getElementById('progress-label').textContent = '';
+  }
+}
