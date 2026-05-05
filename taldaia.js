@@ -533,3 +533,16 @@ function showProgress(show) {
     document.getElementById('progress-label').textContent = '';
   }
 }
+
+document.getElementById('btn-random').onclick  = randomBoard;
+document.getElementById('btn-edit').onclick    = enterEditMode;
+document.getElementById('btn-clear').onclick   = clearBoard;
+document.getElementById('btn-confirm').onclick = confirmEdit;
+document.getElementById('btn-solve').onclick   = solve;
+document.getElementById('btn-stop').onclick    = () => {
+  stopSolver();
+  setMessage('solver cancelado', 'info');
+  render();
+};
+
+randomBoard();
