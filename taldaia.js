@@ -76,20 +76,93 @@ function render() {
 
     boardEl.appendChild(tile);
   });
-  document.getElementById('stat-h').textContent = manhattan(board);
+  document.getElementById('stat-h').textContent =
+  manhattan(board) + linearConflictMain(board);
 }
 
 function getEmptyIndex() { return board.indexOf(0); }
 
 function getValidMoves() {
+
   const e = getEmptyIndex();
-  const row = e >> 2, col = e & 3;
+
+  const row = e >> 2;
+  const col = e & 3;
+
   const mv = [];
+
+  // cima
   if (row > 0) mv.push(e - 4);
+
+  // baixo
   if (row < 3) mv.push(e + 4);
-  if (row > 0) mv.push(e - 1);
-  if (row < 3) mv.push(e + 1);
+
+  // esquerda
+  if (col > 0) mv.push(e - 1);
+
+  // direita
+  if (col < 3) mv.push(e + 1);
+
   return mv;
+}
+
+function linearConflictMain(board) {
+
+  let c = 0;
+
+  // linhas
+  for (let row = 0; row < 4; row++) {
+
+    for (let col1 = 0; col1 < 4; col1++) {
+
+      const t1 = board[row * 4 + col1];
+
+      if (!t1) continue;
+
+      if (((t1 - 1) >> 2) !== row) continue;
+
+      for (let col2 = col1 + 1; col2 < 4; col2++) {
+
+        const t2 = board[row * 4 + col2];
+
+        if (!t2) continue;
+
+        if (((t2 - 1) >> 2) !== row) continue;
+
+        if (((t1 - 1) & 3) > ((t2 - 1) & 3)) {
+          c += 2;
+        }
+      }
+    }
+  }
+
+  // colunas
+  for (let col = 0; col < 4; col++) {
+
+    for (let row1 = 0; row1 < 4; row1++) {
+
+      const t1 = board[row1 * 4 + col];
+
+      if (!t1) continue;
+
+      if (((t1 - 1) & 3) !== col) continue;
+
+      for (let row2 = row1 + 1; row2 < 4; row2++) {
+
+        const t2 = board[row2 * 4 + col];
+
+        if (!t2) continue;
+
+        if (((t2 - 1) & 3) !== col) continue;
+
+        if (((t1 - 1) >> 2) > ((t2 - 1) >> 2)) {
+          c += 2;
+        }
+      }
+    }
+  }
+
+  return c;
 }
 
 function playerMove(idx) {
@@ -257,51 +330,96 @@ function randomBoard() {
 
 const WORKER_SRC = `
 
-/* ──────────────────────────────────────────────
-   HEURÍSTICAS LEVES E EFICIENTES
-   ────────────────────────────────────────────── */
+const goalRow = new Array(16);
+const goalCol = new Array(16);
+
+for (let i = 1; i <= 15; i++) {
+
+  goalRow[i] = (i - 1) >> 2;
+  goalCol[i] = (i - 1) & 3;
+}
+
+const MOVE_TABLE = [];
+
+for (let e = 0; e < 16; e++) {
+
+  const row = e >> 2;
+  const col = e & 3;
+
+  const mv = [];
+
+  if (row > 0) mv.push(e - 4);
+  if (row < 3) mv.push(e + 4);
+  if (col > 0) mv.push(e - 1);
+  if (col < 3) mv.push(e + 1);
+
+  MOVE_TABLE[e] = mv;
+}
 
 function manhattan(board) {
-  let d = 0;
+
+  let h = 0;
+
   for (let i = 0; i < 16; i++) {
+
     const v = board[i];
+
     if (!v) continue;
-    d += Math.abs((i>>2)-((v-1)>>2)) + Math.abs((i&3)-((v-1)&3));
+
+    h +=
+      Math.abs((i >> 2) - goalRow[v]) +
+      Math.abs((i & 3) - goalCol[v]);
   }
-  return d;
+
+  return h;
 }
 
 function linearConflict(board) {
+
   let c = 0;
 
-  // Linhas
+  // linhas
   for (let row = 0; row < 4; row++) {
-    const tiles = [];
-    for (let col = 0; col < 4; col++) {
-      const v = board[row*4 + col];
-      if (v && ((v-1)>>2) === row) tiles.push({v, col});
-    }
-    for (let i = 0; i < tiles.length; i++) {
-      for (let j = i+1; j < tiles.length; j++) {
-        if (tiles[i].col > tiles[j].col &&
-            ((tiles[i].v-1)&3) < ((tiles[j].v-1)&3)) {
+
+    for (let col1 = 0; col1 < 4; col1++) {
+
+      const t1 = board[row * 4 + col1];
+
+      if (!t1) continue;
+      if (goalRow[t1] !== row) continue;
+
+      for (let col2 = col1 + 1; col2 < 4; col2++) {
+
+        const t2 = board[row * 4 + col2];
+
+        if (!t2) continue;
+        if (goalRow[t2] !== row) continue;
+
+        if (goalCol[t1] > goalCol[t2]) {
           c += 2;
         }
       }
     }
   }
 
-  // Colunas
+  // colunas
   for (let col = 0; col < 4; col++) {
-    const tiles = [];
-    for (let row = 0; row < 4; row++) {
-      const v = board[row*4 + col];
-      if (v && ((v-1)&3) === col) tiles.push({v, row});
-    }
-    for (let i = 0; i < tiles.length; i++) {
-      for (let j = i+1; j < tiles.length; j++) {
-        if (tiles[i].row > tiles[j].row &&
-            ((tiles[i].v-1)>>2) < ((tiles[j].v-1)>>2)) {
+
+    for (let row1 = 0; row1 < 4; row1++) {
+
+      const t1 = board[row1 * 4 + col];
+
+      if (!t1) continue;
+      if (goalCol[t1] !== col) continue;
+
+      for (let row2 = row1 + 1; row2 < 4; row2++) {
+
+        const t2 = board[row2 * 4 + col];
+
+        if (!t2) continue;
+        if (goalCol[t2] !== col) continue;
+
+        if (goalRow[t1] > goalRow[t2]) {
           c += 2;
         }
       }
@@ -311,89 +429,178 @@ function linearConflict(board) {
   return c;
 }
 
-/* Heurística final */
 function heuristic(board) {
   return manhattan(board) + linearConflict(board);
 }
 
-/* ──────────────────────────────────────────────
-   IDA*
-   ────────────────────────────────────────────── */
-
-function getMoves(e) {
-  const row = e>>2, col = e&3, mv = [];
-  if (row>0) mv.push(e-4);
-  if (row<3) mv.push(e+4);
-  if (col>0) mv.push(e-1);
-  if (col<3) mv.push(e+1);
-  return mv;
-}
-
 function idaStar(startBoard) {
-  let bound = heuristic(startBoard);
+
+  const board = Uint8Array.from(startBoard);
+
+  const emptyPos = board.indexOf(0);
+
+  let bound = heuristic(board);
+
   const path = [];
 
-  for (let iter = 0; iter < 200; iter++) {
-    const t = search(startBoard, 0, bound, path, -1);
-    if (t === true) return path;
-    if (t === Infinity) return null;
+  for (;;) {
+
+    const pathSet = new Set();
+
+    const t = search(
+      board,
+      emptyPos,
+      0,
+      bound,
+      path,
+      -1,
+      pathSet
+    );
+
+    if (t === true) {
+      return path;
+    }
+
+    if (t === Infinity) {
+      return null;
+    }
+
     bound = t;
 
-    self.postMessage({ type: 'progress', bound, iter });
+    self.postMessage({
+      type: 'progress',
+      bound
+    });
   }
-
-  return null;
 }
 
-function search(board, g, bound, path, prevEmpty) {
-  const e = board.indexOf(0);
+function search(
+  board,
+  emptyPos,
+  g,
+  bound,
+  path,
+  prevEmpty,
+  pathSet
+) {
+
   const h = heuristic(board);
+
   const f = g + h;
 
   if (f > bound) return f;
+
+  if (f > 80) return Infinity;
+
   if (h === 0) return true;
+
+  const key = board.toString();
+
+  if (pathSet.has(key)) {
+    return Infinity;
+  }
+
+  pathSet.add(key);
 
   let min = Infinity;
 
-  for (const mv of getMoves(e)) {
+  const moves = MOVE_TABLE[emptyPos];
+
+  const ordered = new Array(moves.length);
+
+  let k = 0;
+
+  for (const mv of moves) {
+
     if (mv === prevEmpty) continue;
 
-    // aplica movimento
-    board[e] = board[mv];
+    const tile = board[mv];
+
+    const oldDist =
+      Math.abs((mv >> 2) - goalRow[tile]) +
+      Math.abs((mv & 3) - goalCol[tile]);
+
+    const newDist =
+      Math.abs((emptyPos >> 2) - goalRow[tile]) +
+      Math.abs((emptyPos & 3) - goalCol[tile]);
+
+    ordered[k++] = {
+      mv,
+      delta: newDist - oldDist
+    };
+  }
+
+  ordered.length = k;
+
+  ordered.sort((a, b) => a.delta - b.delta);
+
+  for (let i = 0; i < ordered.length; i++) {
+
+    const mv = ordered[i].mv;
+
+    // APPLY
+    board[emptyPos] = board[mv];
     board[mv] = 0;
+
     path.push(mv);
 
-    const t = search(board, g+1, bound, path, e);
+    const t = search(
+      board,
+      mv,
+      g + 1,
+      bound,
+      path,
+      emptyPos,
+      pathSet
+    );
 
-    if (t === true) return true;
-    if (t < min) min = t;
+    if (t === true) {
+      return true;
+    }
 
-    // desfaz movimento
+    if (t < min) {
+      min = t;
+    }
+
+    // UNDO
     path.pop();
-    board[mv] = board[e];
-    board[e] = 0;
+
+    board[mv] = board[emptyPos];
+    board[emptyPos] = 0;
   }
+
+  pathSet.delete(key);
 
   return min;
 }
 
-/* ──────────────────────────────────────────────
-   WORKER MAIN
-   ────────────────────────────────────────────── */
-
 self.onmessage = function(e) {
-  const board = [...e.data.board];
 
-  self.postMessage({ type: 'phase', text: 'resolvendo com IDA* (rápido)…' });
+  const board = e.data.board;
+
+  self.postMessage({
+    type: 'phase',
+    text: 'resolvendo com IDA*'
+  });
 
   const solution = idaStar(board);
 
   if (solution) {
-    self.postMessage({ type: 'solution', moves: solution });
+
+    self.postMessage({
+      type: 'solution',
+      moves: solution
+    });
+
   } else {
-    self.postMessage({ type: 'error', message: 'Solução não encontrada.' });
+
+    self.postMessage({
+      type: 'error',
+      message: 'Solução não encontrada'
+    });
   }
 };
+
 `;
 
 function createWorker() {
