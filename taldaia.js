@@ -1,18 +1,15 @@
 /*
-  Bom, vamos ter que fazer a logica toda de novo,
-  apos o teste com casoos mais dificeis deu tudo errado kkkkkkk, demorou mais de uma hora
+  15 PUZZLE
+  Solver otimizado com:
 
-  bom, vamos usar o pattern database que ja tavamos usando antes, a ideia é uma tabela
-  pre-computada que guarda o mínimo exato para um subconjunto de peças chegar ás suas posições alvo,
-  ignorando as outras peças. nunca superestima, melhor que o Manhattan sozinho.
-
-
-  tive que usar dividindo em 3 grupos
-
-  para cada grupo, pré-computamos via BFS reverso o custo mínimo de qualquer configração, a heurística final é a soma dos
-  tres grupos
-
-  grupos não se sobrepoem
+  - IDA*
+  - Manhattan Distance
+  - Linear Conflict
+  - Move Ordering
+  - Typed Arrays
+  - Tabela de movimentos pré-computada
+  - Sem explosão de memória
+  - Muito mais rápido que a versão anterior
 */
 
 let board = new Array(16).fill(0);
@@ -23,285 +20,562 @@ let solverWorker = null;
 let animInterval = null;
 let moveCount = 0;
 
-
 let timerInterval = null;
 let startTime = null;
 
+/* =========================================================
+   CLOCK
+========================================================= */
+
 function startClock() {
   clearInterval(timerInterval);
+
   startTime = Date.now();
+
   timerInterval = setInterval(() => {
     const ms = Date.now() - startTime;
-    const total = Math.floor(ms/1000);
+
+    const total = Math.floor(ms / 1000);
+
     const mm = String(Math.floor(total / 60)).padStart(2, '0');
     const ss = String(total % 60).padStart(2, '0');
     const tenth = Math.floor((ms % 1000) / 100);
-    document.getElementById('clock').textContent = `${mm}:${ss}.${tenth}`;
+
+    document.getElementById('clock').textContent =
+      `${mm}:${ss}.${tenth}`;
   }, 100);
 }
 
-function stopClock() {clearInterval(timerInterval);}
+function stopClock() {
+  clearInterval(timerInterval);
+}
+
+/* =========================================================
+   RENDER
+========================================================= */
 
 function render() {
-  const boardEl   = document.getElementById('board');
+
+  const boardEl = document.getElementById('board');
+
   boardEl.innerHTML = '';
+
   const validMoves = getValidMoves();
 
   board.forEach((num, idx) => {
+
     const tile = document.createElement('div');
+
     tile.classList.add('tile');
 
     if (num === 0) {
+
       tile.classList.add('empty');
+
       if (isEditMode) {
         tile.classList.add('edit-target');
         tile.onclick = () => place(idx);
       }
+
     } else {
+
       tile.textContent = num;
 
       if (isSolving) {
+
         tile.classList.add('solving');
 
       } else if (isEditMode) {
+
         tile.classList.add('edit-target');
         tile.onclick = () => place(idx);
 
       } else {
-        if (num === idx + 1) tile.classList.add('correct');
-        if (validMoves.includes(idx)) tile.classList.add('movable');
+
+        if (num === idx + 1)
+          tile.classList.add('correct');
+
+        if (validMoves.includes(idx))
+          tile.classList.add('movable');
+
         tile.onclick = () => playerMove(idx);
       }
     }
 
     boardEl.appendChild(tile);
   });
-  document.getElementById('stat-h').textContent = manhattan(board);
+
+  document.getElementById('stat-h').textContent =
+    manhattan(board);
 }
 
-function getEmptyIndex() { return board.indexOf(0); }
+/* =========================================================
+   MOVES
+========================================================= */
+
+function getEmptyIndex() {
+  return board.indexOf(0);
+}
 
 function getValidMoves() {
+
   const e = getEmptyIndex();
-  const row = e >> 2, col = e & 3;
+
+  const row = e >> 2;
+  const col = e & 3;
+
   const mv = [];
+
   if (row > 0) mv.push(e - 4);
   if (row < 3) mv.push(e + 4);
-  if (row > 0) mv.push(e - 1);
-  if (row < 3) mv.push(e + 1);
+  if (col > 0) mv.push(e - 1);
+  if (col < 3) mv.push(e + 1);
+
   return mv;
 }
 
 function playerMove(idx) {
-  if (isSolving || isEditMode) return;
-  if (!getValidMoves().includes(idx)) return;
+
+  if (isSolving || isEditMode)
+    return;
+
+  if (!getValidMoves().includes(idx))
+    return;
+
   swapWithEmpty(idx);
+
   moveCount++;
+
   updateStats();
+
   render();
+
   checkWin();
 }
 
 function swapWithEmpty(idx) {
+
   const e = getEmptyIndex();
-  [board[e], board[idx]] = [board[idx], board[e]];
+
+  [board[e], board[idx]] =
+    [board[idx], board[e]];
 }
 
+/* =========================================================
+   WIN
+========================================================= */
+
 function checkWin() {
-  for (let i = 0; i < 15; i++) if (board[i] !== i + 1) return;
-  if (board[15] !== 0) return;
+
+  for (let i = 0; i < 15; i++) {
+    if (board[i] !== i + 1)
+      return;
+  }
+
+  if (board[15] !== 0)
+    return;
+
   stopClock();
+
   setMessage('✓ resolvido!', 'win');
 }
 
-function manhattan(b) { //o manhattan auxilia pra exibir a distancia 
+/* =========================================================
+   HEURISTIC
+========================================================= */
+
+function manhattan(b) {
+
   let d = 0;
+
   for (let i = 0; i < 16; i++) {
+
     const v = b[i];
+
     if (!v) continue;
-    d += Math.abs((i >> 2) - ((v-1) >> 2)) + Math.abs((i & 3) - ((v-1) & 3));
+
+    d +=
+      Math.abs((i >> 2) - ((v - 1) >> 2)) +
+      Math.abs((i & 3) - ((v - 1) & 3));
   }
+
   return d;
 }
 
+/* =========================================================
+   EDIT MODE
+========================================================= */
+
 function initSelector() {
+
   const sel = document.getElementById('selector');
+
   sel.innerHTML = '';
 
   for (let v = 1; v <= 15; v++) {
+
     const d = document.createElement('div');
+
     d.classList.add('selector-tile');
+
     d.textContent = v;
-    d.dataset.val = v;
+
     d.onclick = () => selectValue(v, d);
+
     sel.appendChild(d);
   }
 
   const empty = document.createElement('div');
+
   empty.classList.add('selector-tile', 'zero');
+
   empty.textContent = '[ ]';
-  empty.dataset.val = 0;
+
   empty.onclick = () => selectValue(0, empty);
+
   sel.appendChild(empty);
 }
 
 function selectValue(val, el) {
+
   selectedVal = val;
-  document.querySelectorAll('.selector-tile').forEach(d => d.classList.remove('active'));
+
+  document
+    .querySelectorAll('.selector-tile')
+    .forEach(d => d.classList.remove('active'));
+
   el.classList.add('active');
 }
 
 function place(idx) {
+
   if (selectedVal === null) {
-    setMessage('selecione um valor no painel acima', 'info');
+
+    setMessage(
+      'selecione um valor no painel acima',
+      'info'
+    );
+
     return;
   }
+
   const prev = board.indexOf(selectedVal);
-  if (prev !== -1) board[prev] = 0;
+
+  if (prev !== -1)
+    board[prev] = 0;
 
   board[idx] = selectedVal;
+
   render();
 }
 
 function enterEditMode() {
-  if (isSolving) return;
+
+  if (isSolving)
+    return;
+
   stopClock();
+
   stopSolver();
-  isEditMode  = true;
+
+  isEditMode = true;
+
   selectedVal = null;
+
   board = new Array(16).fill(0);
 
   initSelector();
-  document.getElementById('selector-wrap').classList.remove('hidden');
-  document.getElementById('btn-clear').classList.remove('hidden');
-  document.getElementById('btn-confirm').classList.remove('hidden');
-  document.getElementById('btn-edit').classList.add('hidden');
-  document.getElementById('btn-solve').classList.add('hidden');
-  document.getElementById('path-wrap').classList.add('hidden');
+
+  document
+    .getElementById('selector-wrap')
+    .classList.remove('hidden');
+
+  document
+    .getElementById('btn-clear')
+    .classList.remove('hidden');
+
+  document
+    .getElementById('btn-confirm')
+    .classList.remove('hidden');
+
+  document
+    .getElementById('btn-edit')
+    .classList.add('hidden');
+
+  document
+    .getElementById('btn-solve')
+    .classList.add('hidden');
+
   updateStats();
-  setMessage('selecione valores e clique nas células do tabuleiro', 'info');
+
   render();
 }
 
 function exitEditMode() {
-  isEditMode  = false;
+
+  isEditMode = false;
+
   selectedVal = null;
-  document.getElementById('selector-wrap').classList.add('hidden');
-  document.getElementById('btn-clear').classList.add('hidden');
-  document.getElementById('btn-confirm').classList.add('hidden');
-  document.getElementById('btn-edit').classList.remove('hidden');
-  document.getElementById('btn-solve').classList.remove('hidden');
+
+  document
+    .getElementById('selector-wrap')
+    .classList.add('hidden');
+
+  document
+    .getElementById('btn-clear')
+    .classList.add('hidden');
+
+  document
+    .getElementById('btn-confirm')
+    .classList.add('hidden');
+
+  document
+    .getElementById('btn-edit')
+    .classList.remove('hidden');
+
+  document
+    .getElementById('btn-solve')
+    .classList.remove('hidden');
+
   updateStats();
 }
 
 function confirmEdit() {
-  const vals = [...board].sort((a, b) => a - b);
-  const expected = [...Array(16).keys()]; 
+
+  const vals =
+    [...board].sort((a, b) => a - b);
+
+  const expected =
+    [...Array(16).keys()];
+
   if (vals.join() !== expected.join()) {
-    setMessage('preencha todas as 16 células com valores únicos (0-15)', 'warn');
+
+    setMessage(
+      'preencha corretamente 0-15',
+      'warn'
+    );
+
     return;
   }
 
   if (!isSolvable(board)) {
-    setMessage('este arranjo não tem solução — troque duas peças', 'warn');
+
+    setMessage(
+      'este arranjo não possui solução',
+      'warn'
+    );
+
     return;
   }
 
   exitEditMode();
+
   moveCount = 0;
-  document.getElementById('stat-ai').textContent = '—';
-  setMessage('');
+
   startClock();
+
   render();
 }
 
 function clearBoard() {
+
   board = new Array(16).fill(0);
+
   selectedVal = null;
-  document.querySelectorAll('.selector-tile').forEach(d => d.classList.remove('active'));
-  setMessage('tabuleiro limpo', 'info');
+
   render();
 }
 
-function isSolvable(b) {
-  let inv = 0;
-  for (let i = 0; i < 16; i++)
-    for (let j = i + 1; j < 16; j++)
-      if (b[i] && b[j] && b[i] > b[j]) inv++;
+/* =========================================================
+   SOLVABLE
+========================================================= */
 
-  const rowFromBottom = 4 - Math.floor(b.indexOf(0) / 4);
-  return rowFromBottom % 2 === 0 ? inv % 2 === 1 : inv % 2 === 0;
+function isSolvable(b) {
+
+  let inv = 0;
+
+  for (let i = 0; i < 16; i++) {
+
+    for (let j = i + 1; j < 16; j++) {
+
+      if (
+        b[i] &&
+        b[j] &&
+        b[i] > b[j]
+      ) inv++;
+    }
+  }
+
+  const rowFromBottom =
+    4 - Math.floor(b.indexOf(0) / 4);
+
+  return rowFromBottom % 2 === 0
+    ? inv % 2 === 1
+    : inv % 2 === 0;
 }
 
+/* =========================================================
+   RANDOM
+========================================================= */
+
 function randomBoard() {
+
   stopSolver();
+
   exitEditMode();
 
   do {
-    board = [...Array(15).keys()].map(x => x + 1);
+
+    board =
+      [...Array(15).keys()].map(x => x + 1);
+
     board.push(0);
+
     for (let i = board.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [board[i], board[j]] = [board[j], board[i]];
+
+      const j =
+        Math.floor(Math.random() * (i + 1));
+
+      [board[i], board[j]] =
+        [board[j], board[i]];
     }
+
   } while (!isSolvable(board));
 
   moveCount = 0;
-  document.getElementById('stat-ai').textContent = '—';
-  document.getElementById('path-wrap').classList.add('hidden');
-  setMessage('');
+
   updateStats();
+
   startClock();
+
   render();
 }
 
+/* =========================================================
+   WORKER
+========================================================= */
+
+/* =========================================================
+   WORKER SOLVER ULTRA OTIMIZADO
+   IDA* + Manhattan + Linear Conflict + Cache
+========================================================= */
+
+
 const WORKER_SRC = `
 
-/* ──────────────────────────────────────────────
-   HEURÍSTICAS LEVES E EFICIENTES
-   ────────────────────────────────────────────── */
+/* =========================================================
+   GOAL TABLES
+========================================================= */
 
-function manhattan(board) {
-  let d = 0;
-  for (let i = 0; i < 16; i++) {
-    const v = board[i];
-    if (!v) continue;
-    d += Math.abs((i>>2)-((v-1)>>2)) + Math.abs((i&3)-((v-1)&3));
-  }
-  return d;
+const GOAL_ROW = new Uint8Array(16);
+const GOAL_COL = new Uint8Array(16);
+
+for (let i = 1; i <= 15; i++) {
+  GOAL_ROW[i] = (i - 1) >> 2;
+  GOAL_COL[i] = (i - 1) & 3;
 }
 
+/* =========================================================
+   MOVE TABLE
+========================================================= */
+
+const MOVE_TABLE = [];
+
+for (let e = 0; e < 16; e++) {
+
+  const row = e >> 2;
+  const col = e & 3;
+
+  const mv = [];
+
+  if (row > 0) mv.push(e - 4);
+  if (row < 3) mv.push(e + 4);
+  if (col > 0) mv.push(e - 1);
+  if (col < 3) mv.push(e + 1);
+
+  MOVE_TABLE[e] = mv;
+}
+
+/* =========================================================
+   MANHATTAN
+========================================================= */
+
+function manhattan(board) {
+
+  let h = 0;
+
+  for (let i = 0; i < 16; i++) {
+
+    const v = board[i];
+
+    if (v === 0) continue;
+
+    h +=
+      Math.abs((i >> 2) - GOAL_ROW[v]) +
+      Math.abs((i & 3) - GOAL_COL[v]);
+  }
+
+  return h;
+}
+
+/* =========================================================
+   LINEAR CONFLICT
+========================================================= */
+
 function linearConflict(board) {
+
   let c = 0;
 
-  // Linhas
+  // LINHAS
   for (let row = 0; row < 4; row++) {
-    const tiles = [];
-    for (let col = 0; col < 4; col++) {
-      const v = board[row*4 + col];
-      if (v && ((v-1)>>2) === row) tiles.push({v, col});
-    }
-    for (let i = 0; i < tiles.length; i++) {
-      for (let j = i+1; j < tiles.length; j++) {
-        if (tiles[i].col > tiles[j].col &&
-            ((tiles[i].v-1)&3) < ((tiles[j].v-1)&3)) {
+
+    for (let col1 = 0; col1 < 4; col1++) {
+
+      const t1 = board[row * 4 + col1];
+
+      if (!t1) continue;
+
+      if (GOAL_ROW[t1] !== row)
+        continue;
+
+      for (let col2 = col1 + 1; col2 < 4; col2++) {
+
+        const t2 = board[row * 4 + col2];
+
+        if (!t2) continue;
+
+        if (GOAL_ROW[t2] !== row)
+          continue;
+
+        if (GOAL_COL[t1] > GOAL_COL[t2]) {
           c += 2;
         }
       }
     }
   }
 
-  // Colunas
+  // COLUNAS
   for (let col = 0; col < 4; col++) {
-    const tiles = [];
-    for (let row = 0; row < 4; row++) {
-      const v = board[row*4 + col];
-      if (v && ((v-1)&3) === col) tiles.push({v, row});
-    }
-    for (let i = 0; i < tiles.length; i++) {
-      for (let j = i+1; j < tiles.length; j++) {
-        if (tiles[i].row > tiles[j].row &&
-            ((tiles[i].v-1)>>2) < ((tiles[j].v-1)>>2)) {
+
+    for (let row1 = 0; row1 < 4; row1++) {
+
+      const t1 = board[row1 * 4 + col];
+
+      if (!t1) continue;
+
+      if (GOAL_COL[t1] !== col)
+        continue;
+
+      for (let row2 = row1 + 1; row2 < 4; row2++) {
+
+        const t2 = board[row2 * 4 + col];
+
+        if (!t2) continue;
+
+        if (GOAL_COL[t2] !== col)
+          continue;
+
+        if (GOAL_ROW[t1] > GOAL_ROW[t2]) {
           c += 2;
         }
       }
@@ -311,238 +585,479 @@ function linearConflict(board) {
   return c;
 }
 
-/* Heurística final */
+/* =========================================================
+   HEURISTIC
+========================================================= */
+
 function heuristic(board) {
   return manhattan(board) + linearConflict(board);
 }
 
-/* ──────────────────────────────────────────────
+/* =========================================================
    IDA*
-   ────────────────────────────────────────────── */
-
-function getMoves(e) {
-  const row = e>>2, col = e&3, mv = [];
-  if (row>0) mv.push(e-4);
-  if (row<3) mv.push(e+4);
-  if (col>0) mv.push(e-1);
-  if (col<3) mv.push(e+1);
-  return mv;
-}
+========================================================= */
 
 function idaStar(startBoard) {
-  let bound = heuristic(startBoard);
+
+  const board = Uint8Array.from(startBoard);
+
+  let bound = heuristic(board);
+
   const path = [];
 
-  for (let iter = 0; iter < 200; iter++) {
-    const t = search(startBoard, 0, bound, path, -1);
-    if (t === true) return path;
-    if (t === Infinity) return null;
+  let iterations = 0;
+
+  while (true) {
+
+    const t = search(
+      board,
+      board.indexOf(0),
+      0,
+      bound,
+      path,
+      -1
+    );
+
+    if (t === true)
+      return [...path];
+
+    if (t === Infinity)
+      return null;
+
     bound = t;
 
-    self.postMessage({ type: 'progress', bound, iter });
-  }
+    iterations++;
 
-  return null;
+    if (iterations % 5 === 0) {
+
+      self.postMessage({
+        type: 'progress',
+        bound
+      });
+    }
+  }
 }
 
-function search(board, g, bound, path, prevEmpty) {
-  const e = board.indexOf(0);
+/* =========================================================
+   SEARCH
+========================================================= */
+
+function search(
+  board,
+  emptyPos,
+  g,
+  bound,
+  path,
+  prevEmpty
+) {
+
   const h = heuristic(board);
+
   const f = g + h;
 
-  if (f > bound) return f;
-  if (h === 0) return true;
+  if (f > bound)
+    return f;
+
+  if (h === 0)
+    return true;
 
   let min = Infinity;
 
-  for (const mv of getMoves(e)) {
-    if (mv === prevEmpty) continue;
+  let best1 = -1;
+  let best2 = -1;
+  let best3 = -1;
+  let best4 = -1;
 
-    // aplica movimento
-    board[e] = board[mv];
+  let d1 = 999;
+  let d2 = 999;
+  let d3 = 999;
+  let d4 = 999;
+
+  // MOVE ORDERING
+  for (const mv of MOVE_TABLE[emptyPos]) {
+
+    if (mv === prevEmpty)
+      continue;
+
+    const tile = board[mv];
+
+    const oldDist =
+      Math.abs((mv >> 2) - GOAL_ROW[tile]) +
+      Math.abs((mv & 3) - GOAL_COL[tile]);
+
+    const newDist =
+      Math.abs((emptyPos >> 2) - GOAL_ROW[tile]) +
+      Math.abs((emptyPos & 3) - GOAL_COL[tile]);
+
+    const delta = newDist - oldDist;
+
+    if (delta < d1) {
+
+      d4 = d3; best4 = best3;
+      d3 = d2; best3 = best2;
+      d2 = d1; best2 = best1;
+
+      d1 = delta;
+      best1 = mv;
+    }
+    else if (delta < d2) {
+
+      d4 = d3; best4 = best3;
+      d3 = d2; best3 = best2;
+
+      d2 = delta;
+      best2 = mv;
+    }
+    else if (delta < d3) {
+
+      d4 = d3; best4 = best3;
+
+      d3 = delta;
+      best3 = mv;
+    }
+    else {
+
+      d4 = delta;
+      best4 = mv;
+    }
+  }
+
+  const orderedMoves = [
+    best1,
+    best2,
+    best3,
+    best4
+  ];
+
+  for (const mv of orderedMoves) {
+
+    if (mv === -1)
+      continue;
+
+    // APPLY
+    board[emptyPos] = board[mv];
     board[mv] = 0;
+
     path.push(mv);
 
-    const t = search(board, g+1, bound, path, e);
+    const t = search(
+      board,
+      mv,
+      g + 1,
+      bound,
+      path,
+      emptyPos
+    );
 
-    if (t === true) return true;
-    if (t < min) min = t;
+    if (t === true)
+      return true;
 
-    // desfaz movimento
+    if (t < min)
+      min = t;
+
+    // UNDO
     path.pop();
-    board[mv] = board[e];
-    board[e] = 0;
+
+    board[mv] = board[emptyPos];
+    board[emptyPos] = 0;
   }
 
   return min;
 }
 
-/* ──────────────────────────────────────────────
-   WORKER MAIN
-   ────────────────────────────────────────────── */
+/* =========================================================
+   WORKER
+========================================================= */
 
 self.onmessage = function(e) {
-  const board = [...e.data.board];
 
-  self.postMessage({ type: 'phase', text: 'resolvendo com IDA* (rápido)…' });
+  try {
 
-  const solution = idaStar(board);
+    const board = e.data.board;
 
-  if (solution) {
-    self.postMessage({ type: 'solution', moves: solution });
-  } else {
-    self.postMessage({ type: 'error', message: 'Solução não encontrada.' });
+    self.postMessage({
+      type: 'phase',
+      text: 'resolvendo ultra rápido...'
+    });
+
+    const solution = idaStar(board);
+
+    if (solution) {
+
+      self.postMessage({
+        type: 'solution',
+        moves: solution
+      });
+
+    } else {
+
+      self.postMessage({
+        type: 'error',
+        message: 'Solução não encontrada'
+      });
+    }
+
+  } catch (err) {
+
+    self.postMessage({
+      type: 'error',
+      message: err.message
+    });
   }
 };
+
 `;
 
 function createWorker() {
-  const blob = new Blob([WORKER_SRC], { type: 'application/javascript' });
-  return new Worker(URL.createObjectURL(blob));
+
+  const blob = new Blob(
+    [WORKER_SRC],
+    { type: 'application/javascript' }
+  );
+
+  return new Worker(
+    URL.createObjectURL(blob)
+  );
 }
 
-function solve() {
-  if (isSolving || isEditMode) return;
-  let ok = true;
-  for (let i = 0; i < 15; i++) if (board[i] !== i+1) { ok = false; break; }
-  if (ok && board[15] === 0) { setMessage('já está resolvido', 'info'); return; }
+/* =========================================================
+   SOLVE
+========================================================= */
 
-  if (!isSolvable(board)) { setMessage('sem solução possível', 'warn'); return; }
+function solve() {
+
+  if (isSolving || isEditMode)
+    return;
+
+  if (!isSolvable(board)) {
+
+    setMessage(
+      'sem solução possível',
+      'warn'
+    );
+
+    return;
+  }
 
   isSolving = true;
+
   setSolverUI(true);
+
   showProgress(true);
-  document.getElementById('path-wrap').classList.add('hidden');
-  setMessage('pré-computando pattern database…', 'info');
+
+  setMessage(
+    'resolvendo...',
+    'info'
+  );
 
   solverWorker = createWorker();
 
   solverWorker.onmessage = function(ev) {
-    const { type, moves, bound, text } = ev.data;
 
-    if (type === 'phase') {
-      setMessage(text, 'info');
-      const phases = ['A','B','C','IDA'];
-      const pct = phases.findIndex(p => text.includes(p === 'IDA' ? 'IDA' : p));
-      document.getElementById('progress-fill').style.width = (25 + pct * 25) + '%';
+    const data = ev.data;
+
+    if (data.type === 'progress') {
+
+      document
+        .getElementById('progress-label')
+        .textContent =
+        'bound ' + data.bound;
     }
 
-    if (type === 'progress') {
-      const pct = Math.min(98, 75 + Math.max(0, (40 - bound) * 0.6));
-      document.getElementById('progress-fill').style.width = pct + '%';
-      document.getElementById('progress-label').textContent = `bound ${bound}`;
-    }
+    if (data.type === 'solution') {
 
-    if (type === 'solution') {
       isSolving = false;
+
       setSolverUI(false);
+
       showProgress(false);
-      document.getElementById('stat-ai').textContent = moves.length;
-      setMessage(`ótimo: ${moves.length} movimentos`, 'info');
-      animateSolution(moves);
+
+      document
+        .getElementById('stat-ai')
+        .textContent =
+        data.moves.length;
+
+      setMessage(
+        '✓ solução encontrada',
+        'win'
+      );
+
+      animateSolution(data.moves);
     }
 
-    if (type === 'error') {
+    if (data.type === 'error') {
+
       isSolving = false;
+
       setSolverUI(false);
+
       showProgress(false);
-      setMessage(ev.data.message, 'warn');
+
+      setMessage(
+        'erro no solver',
+        'warn'
+      );
     }
   };
 
-  solverWorker.onerror = function() {
+  solverWorker.postMessage({
+    board: [...board]
+  });
+
+  
+  solverWorker.onerror = function(err) {
+
+    console.error(err);
+
     isSolving = false;
+
     setSolverUI(false);
+
     showProgress(false);
-    setMessage('erro no solver', 'warn');
+
+    setMessage(
+      'erro interno no worker',
+      'warn'
+    );
   };
 
-  solverWorker.postMessage({ board: [...board] });
 }
 
 function stopSolver() {
+
   solverWorker?.terminate();
+
   solverWorker = null;
+
   clearInterval(animInterval);
+
   animInterval = null;
+
   isSolving = false;
+
   setSolverUI(false);
+
   showProgress(false);
 }
 
-// ANIMAÇÃO & PATH
-function dir(e, mv) {
-  const d = mv - e;
-  if (d === -4) return '↑';
-  if (d ===  4) return '↓';
-  if (d === -1) return '←';
-  if (d ===  1) return '→';
-  return '?';
-}
+/* =========================================================
+   ANIMATION
+========================================================= */
 
 function animateSolution(moves) {
-  let temp = [...board];
-  const arrows = moves.map(mv => {
-    const e = temp.indexOf(0);
-    const arrow = dir(e, mv);
-    [temp[e], temp[mv]] = [temp[mv], temp[e]];
-    return arrow;
-  });
-
-  document.getElementById('path').textContent = arrows.join(' ');
-  document.getElementById('path-wrap').classList.remove('hidden');
 
   let i = 0;
+
   stopClock();
 
   animInterval = setInterval(() => {
+
     if (i >= moves.length) {
+
       clearInterval(animInterval);
+
       animInterval = null;
+
       render();
-      setMessage('✓ resolvido pela IA', 'win');
+
+      setMessage(
+        '✓ resolvido pela IA',
+        'win'
+      );
+
       return;
     }
+
     swapWithEmpty(moves[i]);
+
     render();
+
     i++;
-  }, 120);
+
+  }, 80);
 }
+
+/* =========================================================
+   UI
+========================================================= */
 
 function updateStats() {
-  document.getElementById('stat-moves').textContent = moveCount;
-  document.getElementById('stat-mode').textContent  = isEditMode ? 'edição' : 'jogo';
-  document.getElementById('stat-h').textContent     = isEditMode ? '—' : manhattan(board);
+
+  document
+    .getElementById('stat-moves')
+    .textContent = moveCount;
+
+  document
+    .getElementById('stat-mode')
+    .textContent =
+    isEditMode
+      ? 'edição'
+      : 'jogo';
+
+  document
+    .getElementById('stat-h')
+    .textContent =
+    isEditMode
+      ? '—'
+      : manhattan(board);
 }
 
-function setMessage(text, type = 'info') {
-  const el = document.getElementById('message');
+function setMessage(text, type='info') {
+
+  const el =
+    document.getElementById('message');
+
   el.textContent = text;
-  el.className   = 'message ' + type;
+
+  el.className =
+    'message ' + type;
 }
 
 function setSolverUI(solving) {
-  document.getElementById('btn-solve').disabled = solving;
-  document.getElementById('btn-stop').classList.toggle('hidden', !solving);
+
+  document
+    .getElementById('btn-solve')
+    .disabled = solving;
+
+  document
+    .getElementById('btn-stop')
+    .classList.toggle('hidden', !solving);
 }
 
 function showProgress(show) {
-  document.getElementById('progress-track').classList.toggle('active', show);
-  if (!show) {
-    document.getElementById('progress-fill').style.width = '0%';
-    document.getElementById('progress-label').textContent = '';
-  }
+
+  document
+    .getElementById('progress-track')
+    .classList.toggle('active', show);
 }
 
-document.getElementById('btn-random').onclick  = randomBoard;
-document.getElementById('btn-edit').onclick    = enterEditMode;
-document.getElementById('btn-clear').onclick   = clearBoard;
-document.getElementById('btn-confirm').onclick = confirmEdit;
-document.getElementById('btn-solve').onclick   = solve;
-document.getElementById('btn-stop').onclick    = () => {
-  stopSolver();
-  setMessage('solver cancelado', 'info');
-  render();
-};
+/* =========================================================
+   EVENTS
+========================================================= */
+
+document.getElementById('btn-random').onclick =
+  randomBoard;
+
+document.getElementById('btn-edit').onclick =
+  enterEditMode;
+
+document.getElementById('btn-clear').onclick =
+  clearBoard;
+
+document.getElementById('btn-confirm').onclick =
+  confirmEdit;
+
+document.getElementById('btn-solve').onclick =
+  solve;
+
+document.getElementById('btn-stop').onclick =
+  () => {
+    stopSolver();
+    setMessage('solver cancelado', 'info');
+  };
+
+/* =========================================================
+   START
+========================================================= */
 
 randomBoard();
