@@ -104,9 +104,14 @@ function render() {
 
     boardEl.appendChild(tile);
   });
+<<<<<<< HEAD
 
   document.getElementById('stat-h').textContent =
     manhattan(board);
+=======
+  document.getElementById('stat-h').textContent =
+  manhattan(board) + linearConflictMain(board);
+>>>>>>> 22727d4994f8eac174bda81baa2f92449edd88bb
 }
 
 /* =========================================================
@@ -126,12 +131,85 @@ function getValidMoves() {
 
   const mv = [];
 
+<<<<<<< HEAD
+=======
+  // cima
+>>>>>>> 22727d4994f8eac174bda81baa2f92449edd88bb
   if (row > 0) mv.push(e - 4);
+
+  // baixo
   if (row < 3) mv.push(e + 4);
+<<<<<<< HEAD
   if (col > 0) mv.push(e - 1);
+=======
+
+  // esquerda
+  if (col > 0) mv.push(e - 1);
+
+  // direita
+>>>>>>> 22727d4994f8eac174bda81baa2f92449edd88bb
   if (col < 3) mv.push(e + 1);
 
   return mv;
+}
+
+function linearConflictMain(board) {
+
+  let c = 0;
+
+  // linhas
+  for (let row = 0; row < 4; row++) {
+
+    for (let col1 = 0; col1 < 4; col1++) {
+
+      const t1 = board[row * 4 + col1];
+
+      if (!t1) continue;
+
+      if (((t1 - 1) >> 2) !== row) continue;
+
+      for (let col2 = col1 + 1; col2 < 4; col2++) {
+
+        const t2 = board[row * 4 + col2];
+
+        if (!t2) continue;
+
+        if (((t2 - 1) >> 2) !== row) continue;
+
+        if (((t1 - 1) & 3) > ((t2 - 1) & 3)) {
+          c += 2;
+        }
+      }
+    }
+  }
+
+  // colunas
+  for (let col = 0; col < 4; col++) {
+
+    for (let row1 = 0; row1 < 4; row1++) {
+
+      const t1 = board[row1 * 4 + col];
+
+      if (!t1) continue;
+
+      if (((t1 - 1) & 3) !== col) continue;
+
+      for (let row2 = row1 + 1; row2 < 4; row2++) {
+
+        const t2 = board[row2 * 4 + col];
+
+        if (!t2) continue;
+
+        if (((t2 - 1) & 3) !== col) continue;
+
+        if (((t1 - 1) >> 2) > ((t2 - 1) >> 2)) {
+          c += 2;
+        }
+      }
+    }
+  }
+
+  return c;
 }
 
 function playerMove(idx) {
@@ -463,6 +541,7 @@ function randomBoard() {
 
 const WORKER_SRC = `
 
+<<<<<<< HEAD
 /* =========================================================
    GOAL TABLES
 ========================================================= */
@@ -473,6 +552,50 @@ const GOAL_COL = new Uint8Array(16);
 for (let i = 1; i <= 15; i++) {
   GOAL_ROW[i] = (i - 1) >> 2;
   GOAL_COL[i] = (i - 1) & 3;
+=======
+const goalRow = new Array(16);
+const goalCol = new Array(16);
+
+for (let i = 1; i <= 15; i++) {
+
+  goalRow[i] = (i - 1) >> 2;
+  goalCol[i] = (i - 1) & 3;
+}
+
+const MOVE_TABLE = [];
+
+for (let e = 0; e < 16; e++) {
+
+  const row = e >> 2;
+  const col = e & 3;
+
+  const mv = [];
+
+  if (row > 0) mv.push(e - 4);
+  if (row < 3) mv.push(e + 4);
+  if (col > 0) mv.push(e - 1);
+  if (col < 3) mv.push(e + 1);
+
+  MOVE_TABLE[e] = mv;
+}
+
+function manhattan(board) {
+
+  let h = 0;
+
+  for (let i = 0; i < 16; i++) {
+
+    const v = board[i];
+
+    if (!v) continue;
+
+    h +=
+      Math.abs((i >> 2) - goalRow[v]) +
+      Math.abs((i & 3) - goalCol[v]);
+  }
+
+  return h;
+>>>>>>> 22727d4994f8eac174bda81baa2f92449edd88bb
 }
 
 /* =========================================================
@@ -526,7 +649,11 @@ function linearConflict(board) {
 
   let c = 0;
 
+<<<<<<< HEAD
   // LINHAS
+=======
+  // linhas
+>>>>>>> 22727d4994f8eac174bda81baa2f92449edd88bb
   for (let row = 0; row < 4; row++) {
 
     for (let col1 = 0; col1 < 4; col1++) {
@@ -534,27 +661,41 @@ function linearConflict(board) {
       const t1 = board[row * 4 + col1];
 
       if (!t1) continue;
+<<<<<<< HEAD
 
       if (GOAL_ROW[t1] !== row)
         continue;
+=======
+      if (goalRow[t1] !== row) continue;
+>>>>>>> 22727d4994f8eac174bda81baa2f92449edd88bb
 
       for (let col2 = col1 + 1; col2 < 4; col2++) {
 
         const t2 = board[row * 4 + col2];
 
         if (!t2) continue;
+<<<<<<< HEAD
 
         if (GOAL_ROW[t2] !== row)
           continue;
 
         if (GOAL_COL[t1] > GOAL_COL[t2]) {
+=======
+        if (goalRow[t2] !== row) continue;
+
+        if (goalCol[t1] > goalCol[t2]) {
+>>>>>>> 22727d4994f8eac174bda81baa2f92449edd88bb
           c += 2;
         }
       }
     }
   }
 
+<<<<<<< HEAD
   // COLUNAS
+=======
+  // colunas
+>>>>>>> 22727d4994f8eac174bda81baa2f92449edd88bb
   for (let col = 0; col < 4; col++) {
 
     for (let row1 = 0; row1 < 4; row1++) {
@@ -562,20 +703,30 @@ function linearConflict(board) {
       const t1 = board[row1 * 4 + col];
 
       if (!t1) continue;
+<<<<<<< HEAD
 
       if (GOAL_COL[t1] !== col)
         continue;
+=======
+      if (goalCol[t1] !== col) continue;
+>>>>>>> 22727d4994f8eac174bda81baa2f92449edd88bb
 
       for (let row2 = row1 + 1; row2 < 4; row2++) {
 
         const t2 = board[row2 * 4 + col];
 
         if (!t2) continue;
+<<<<<<< HEAD
 
         if (GOAL_COL[t2] !== col)
           continue;
 
         if (GOAL_ROW[t1] > GOAL_ROW[t2]) {
+=======
+        if (goalCol[t2] !== col) continue;
+
+        if (goalRow[t1] > goalRow[t2]) {
+>>>>>>> 22727d4994f8eac174bda81baa2f92449edd88bb
           c += 2;
         }
       }
@@ -585,26 +736,38 @@ function linearConflict(board) {
   return c;
 }
 
+<<<<<<< HEAD
 /* =========================================================
    HEURISTIC
 ========================================================= */
 
+=======
+>>>>>>> 22727d4994f8eac174bda81baa2f92449edd88bb
 function heuristic(board) {
   return manhattan(board) + linearConflict(board);
 }
 
+<<<<<<< HEAD
 /* =========================================================
    IDA*
 ========================================================= */
 
+=======
+>>>>>>> 22727d4994f8eac174bda81baa2f92449edd88bb
 function idaStar(startBoard) {
 
   const board = Uint8Array.from(startBoard);
 
+<<<<<<< HEAD
+=======
+  const emptyPos = board.indexOf(0);
+
+>>>>>>> 22727d4994f8eac174bda81baa2f92449edd88bb
   let bound = heuristic(board);
 
   const path = [];
 
+<<<<<<< HEAD
   let iterations = 0;
 
   while (true) {
@@ -642,27 +805,82 @@ function idaStar(startBoard) {
    SEARCH
 ========================================================= */
 
+=======
+  for (;;) {
+
+    const pathSet = new Set();
+
+    const t = search(
+      board,
+      emptyPos,
+      0,
+      bound,
+      path,
+      -1,
+      pathSet
+    );
+
+    if (t === true) {
+      return path;
+    }
+
+    if (t === Infinity) {
+      return null;
+    }
+
+    bound = t;
+
+    self.postMessage({
+      type: 'progress',
+      bound
+    });
+  }
+}
+
+>>>>>>> 22727d4994f8eac174bda81baa2f92449edd88bb
 function search(
   board,
   emptyPos,
   g,
   bound,
   path,
+<<<<<<< HEAD
   prevEmpty
+=======
+  prevEmpty,
+  pathSet
+>>>>>>> 22727d4994f8eac174bda81baa2f92449edd88bb
 ) {
 
   const h = heuristic(board);
 
   const f = g + h;
 
+<<<<<<< HEAD
   if (f > bound)
     return f;
 
   if (h === 0)
     return true;
+=======
+  if (f > bound) return f;
+
+  if (f > 80) return Infinity;
+
+  if (h === 0) return true;
+>>>>>>> 22727d4994f8eac174bda81baa2f92449edd88bb
+
+  const key = board.toString();
+
+  if (pathSet.has(key)) {
+    return Infinity;
+  }
+
+  pathSet.add(key);
 
   let min = Infinity;
 
+<<<<<<< HEAD
   let best1 = -1;
   let best2 = -1;
   let best3 = -1;
@@ -733,6 +951,41 @@ function search(
 
     if (mv === -1)
       continue;
+=======
+  const moves = MOVE_TABLE[emptyPos];
+
+  const ordered = new Array(moves.length);
+
+  let k = 0;
+
+  for (const mv of moves) {
+
+    if (mv === prevEmpty) continue;
+
+    const tile = board[mv];
+
+    const oldDist =
+      Math.abs((mv >> 2) - goalRow[tile]) +
+      Math.abs((mv & 3) - goalCol[tile]);
+
+    const newDist =
+      Math.abs((emptyPos >> 2) - goalRow[tile]) +
+      Math.abs((emptyPos & 3) - goalCol[tile]);
+
+    ordered[k++] = {
+      mv,
+      delta: newDist - oldDist
+    };
+  }
+
+  ordered.length = k;
+
+  ordered.sort((a, b) => a.delta - b.delta);
+
+  for (let i = 0; i < ordered.length; i++) {
+
+    const mv = ordered[i].mv;
+>>>>>>> 22727d4994f8eac174bda81baa2f92449edd88bb
 
     // APPLY
     board[emptyPos] = board[mv];
@@ -746,6 +999,7 @@ function search(
       g + 1,
       bound,
       path,
+<<<<<<< HEAD
       emptyPos
     );
 
@@ -754,6 +1008,19 @@ function search(
 
     if (t < min)
       min = t;
+=======
+      emptyPos,
+      pathSet
+    );
+
+    if (t === true) {
+      return true;
+    }
+
+    if (t < min) {
+      min = t;
+    }
+>>>>>>> 22727d4994f8eac174bda81baa2f92449edd88bb
 
     // UNDO
     path.pop();
@@ -762,9 +1029,12 @@ function search(
     board[emptyPos] = 0;
   }
 
+  pathSet.delete(key);
+
   return min;
 }
 
+<<<<<<< HEAD
 /* =========================================================
    WORKER
 ========================================================= */
@@ -772,9 +1042,20 @@ function search(
 self.onmessage = function(e) {
 
   try {
+=======
+self.onmessage = function(e) {
+
+  const board = e.data.board;
+
+  self.postMessage({
+    type: 'phase',
+    text: 'resolvendo com IDA*'
+  });
+>>>>>>> 22727d4994f8eac174bda81baa2f92449edd88bb
 
     const board = e.data.board;
 
+<<<<<<< HEAD
     self.postMessage({
       type: 'phase',
       text: 'resolvendo ultra rápido...'
@@ -802,6 +1083,20 @@ self.onmessage = function(e) {
     self.postMessage({
       type: 'error',
       message: err.message
+=======
+  if (solution) {
+
+    self.postMessage({
+      type: 'solution',
+      moves: solution
+    });
+
+  } else {
+
+    self.postMessage({
+      type: 'error',
+      message: 'Solução não encontrada'
+>>>>>>> 22727d4994f8eac174bda81baa2f92449edd88bb
     });
   }
 };
