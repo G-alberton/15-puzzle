@@ -1,15 +1,3 @@
-/*
-  15 PUZZLE
-  Solver otimizado com:
-
-  - IDA*
-  - Manhattan Distance
-  - Linear Conflict
-  - Move Ordering
-  - Typed Arrays
-  - Worker Thread
-*/
-
 let board = new Array(16).fill(0);
 
 let selectedVal = null;
@@ -23,10 +11,6 @@ let moveCount = 0;
 
 let timerInterval = null;
 let startTime = null;
-
-/* =========================================================
-   CLOCK
-========================================================= */
 
 function startClock() {
   clearInterval(timerInterval);
@@ -48,10 +32,6 @@ function startClock() {
 function stopClock() {
   clearInterval(timerInterval);
 }
-
-/* =========================================================
-   RENDER
-========================================================= */
 
 function render() {
   const boardEl = document.getElementById('board');
@@ -101,10 +81,6 @@ function render() {
     : manhattan(board) + linearConflictMain(board);
 }
 
-/* =========================================================
-   MOVES
-========================================================= */
-
 function getEmptyIndex() {
   return board.indexOf(0);
 }
@@ -147,10 +123,6 @@ function playerMove(idx) {
   checkWin();
 }
 
-/* =========================================================
-   WIN
-========================================================= */
-
 function checkWin() {
   for (let i = 0; i < 15; i++) {
     if (board[i] !== i + 1) return;
@@ -162,10 +134,6 @@ function checkWin() {
 
   setMessage('✓ resolvido!', 'win');
 }
-
-/* =========================================================
-   HEURISTIC
-========================================================= */
 
 function manhattan(b) {
   let d = 0;
@@ -233,10 +201,6 @@ function linearConflictMain(board) {
   return c;
 }
 
-/* =========================================================
-   SOLVABLE
-========================================================= */
-
 function isSolvable(b) {
   let inv = 0;
 
@@ -254,10 +218,6 @@ function isSolvable(b) {
     ? inv % 2 === 1
     : inv % 2 === 0;
 }
-
-/* =========================================================
-   RANDOM
-========================================================= */
 
 function randomBoard() {
   stopSolver();
@@ -282,10 +242,6 @@ function randomBoard() {
 
   setMessage('novo jogo iniciado', 'info');
 }
-
-/* =========================================================
-   EDIT MODE
-========================================================= */
 
 function initSelector() {
   const sel = document.getElementById('selector');
@@ -409,10 +365,6 @@ function clearBoard() {
 
   render();
 }
-
-/* =========================================================
-   WORKER
-========================================================= */
 
 const WORKER_SRC = `
 
@@ -924,10 +876,6 @@ function stopSolver() {
   showProgress(false);
 }
 
-/* =========================================================
-   ANIMATION
-========================================================= */
-
 function animateSolution(moves) {
   let i = 0;
 
@@ -953,10 +901,6 @@ function animateSolution(moves) {
     i++;
   }, 80);
 }
-
-/* =========================================================
-   UI
-========================================================= */
 
 function updateStats() {
   document.getElementById('stat-moves').textContent = moveCount;
@@ -989,10 +933,6 @@ function showProgress(show) {
     document.getElementById('progress-label').textContent = '';
   }
 }
-
-/* =========================================================
-   EVENTS + START
-========================================================= */
 
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btn-random').onclick = randomBoard;
