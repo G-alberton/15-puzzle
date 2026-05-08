@@ -439,6 +439,14 @@ for (let e = 0; e < 16; e++) {
   MOVE_TABLE[e] = mv;
 }
 
+const PATTERNS = [
+  [1, 2, 3, 4, 5],
+  [6, 7, 8, 9, 10],
+  [11, 12, 13, 14, 15]
+];
+
+let PDBS = null;
+
 function manhattan(board) {
   let h = 0;
 
@@ -501,27 +509,205 @@ function linearConflict(board) {
   return c;
 }
 
+function encodePositions(pos, blank) {
+  let key = blank << 20;
+
+  key |= pos[0];
+  key |= pos[1] << 4;
+  key |= pos[2] << 8;
+  key |= pos[3] << 12;
+  key |= pos[4] << 16;
+
+  return key;
+}
+
+function buildPatternDatabase(pattern, index) {
+  const SIZE = 1 << 24;
+  const EMPTY = 255;
+
+  const db = new Uint8Array(SIZE);
+  db.fill(EMPTY);
+
+  const goalPos = new Uint8Array(5);
+
+  for (let i = 0; i < 5; i++) {
+    goalPos[i] = pattern[i] - 1;
+  }
+
+  const goalBlank = 15;
+  const startKey = encodePositions(goalPos, goalBlank);
+
+  db[startKey] = 0;
+
+  const CAPACITY = 5765770;
+  const queue = new Uint32Array(CAPACITY);
+
+  let head = 0;
+  let tail = 0;
+  let count = 0;
+  let visited = 1;
+
+  function pushFront(v) {
+    head = (head - 1 + CAPACITY) % CAPACITY;
+    queue[head] = v;
+    count++;
+  }
+
+  function pushBack(v) {
+    queue[tail] = v;
+    tail = (tail + 1) % CAPACITY;
+    count++;
+  }
+
+  function popFront() {
+    const v = queue[head];
+    head = (head + 1) % CAPACITY;
+    count--;
+    return v;
+  }
+
+  pushBack(startKey);
+
+  const pos = new Uint8Array(5);
+
+  while (count > 0) {
+    const key = popFront();
+    const dist = db[key];
+
+    pos[0] = key & 15;
+    pos[1] = (key >> 4) & 15;
+    pos[2] = (key >> 8) & 15;
+    pos[3] = (key >> 12) & 15;
+    pos[4] = (key >> 16) & 15;
+
+    const blank = (key >> 20) & 15;
+    const moves = MOVE_TABLE[blank];
+
+    for (let i = 0; i < moves.length; i++) {
+      const nextBlank = moves[i];
+
+      let tileIndex = -1;
+
+      for (let p = 0; p < 5; p++) {
+        if (pos[p] === nextBlank) {
+          tileIndex = p;
+          break;
+        }
+      }
+
+      let nextKey;
+
+      if (tileIndex === -1) {
+        nextKey =
+          (key & ~(15 << 20)) |
+          (nextBlank << 20);
+
+        if (db[nextKey] === EMPTY) {
+          db[nextKey] = dist;
+          pushFront(nextKey);
+          visited++;
+        }
+      } else {
+        const shift = tileIndex * 4;
+
+        nextKey =
+          (key & ~(15 << shift) & ~(15 << 20)) |
+          (blank << shift) |
+          (nextBlank << 20);
+
+        if (db[nextKey] === EMPTY) {
+          db[nextKey] = dist + 1;
+          pushBack(nextKey);
+          visited++;
+        }
+      }
+    }
+
+    if ((visited & 262143) === 0) {
+      self.postMessage({
+        type: 'pdb',
+        pattern: index + 1,
+        visited
+      });
+    }
+  }
+
+  self.postMessage({
+    type: 'pdb',
+    pattern: index + 1,
+    visited,
+    done: true
+  });
+
+  return {
+    pattern,
+    db
+  };
+}
+
+function ensurePDBS() {
+  if (PDBS) return;
+
+  PDBS = [];
+
+  for (let i = 0; i < PATTERNS.length; i++) {
+    PDBS.push(buildPatternDatabase(PATTERNS[i], i));
+  }
+}
+
+function pdbHeuristic(board) {
+  const tilePos = new Uint8Array(16);
+
+  for (let i = 0; i < 16; i++) {
+    tilePos[board[i]] = i;
+  }
+
+  const blank = tilePos[0];
+
+  let h = 0;
+
+  for (let i = 0; i < PDBS.length; i++) {
+    const pattern = PDBS[i].pattern;
+    const db = PDBS[i].db;
+
+    const pos = [
+      tilePos[pattern[0]],
+      tilePos[pattern[1]],
+      tilePos[pattern[2]],
+      tilePos[pattern[3]],
+      tilePos[pattern[4]]
+    ];
+
+    const key = encodePositions(pos, blank);
+    h += db[key];
+  }
+
+  return h;
+}
+
 function heuristic(board) {
-  return manhattan(board) + linearConflict(board);
+  const pdb = pdbHeuristic(board);
+  const classic = manhattan(board) + linearConflict(board);
+
+  return Math.max(pdb, classic);
 }
 
 function idaStar(startBoard) {
+  ensurePDBS();
+
   const board = Uint8Array.from(startBoard);
 
   let bound = heuristic(board);
   const path = [];
 
   while (true) {
-    const pathSet = new Set();
-
     const t = search(
       board,
       board.indexOf(0),
       0,
       bound,
       path,
-      -1,
-      pathSet
+      -1
     );
 
     if (t === true) return [...path];
@@ -536,22 +722,17 @@ function idaStar(startBoard) {
   }
 }
 
-function search(board, emptyPos, g, bound, path, prevEmpty, pathSet) {
+function search(board, emptyPos, g, bound, path, prevEmpty) {
   const h = heuristic(board);
   const f = g + h;
 
   if (f > bound) return f;
   if (h === 0) return true;
 
-  const key = board.toString();
-
-  if (pathSet.has(key)) return Infinity;
-
-  pathSet.add(key);
-
   let min = Infinity;
 
   const moves = MOVE_TABLE[emptyPos];
+
   const ordered = [];
 
   for (const mv of moves) {
@@ -589,8 +770,7 @@ function search(board, emptyPos, g, bound, path, prevEmpty, pathSet) {
       g + 1,
       bound,
       path,
-      emptyPos,
-      pathSet
+      emptyPos
     );
 
     if (t === true) return true;
@@ -602,8 +782,6 @@ function search(board, emptyPos, g, bound, path, prevEmpty, pathSet) {
     board[mv] = board[emptyPos];
     board[emptyPos] = 0;
   }
-
-  pathSet.delete(key);
 
   return min;
 }
@@ -633,6 +811,7 @@ self.onmessage = function(e) {
 };
 
 `;
+
 
 function createWorker() {
   const blob = new Blob([WORKER_SRC], {
@@ -670,6 +849,15 @@ function solve() {
 
   solverWorker.onmessage = function(ev) {
     const data = ev.data;
+
+    if (data.type === 'pdb') {
+      document.getElementById('progress-label').textContent =
+        data.done
+          ? 'pattern database ' + data.pattern + ' pronta'
+          : 'criando pattern database ' + data.pattern;
+
+      return;
+    }
 
     if (data.type === 'progress') {
       document.getElementById('progress-label').textContent =
