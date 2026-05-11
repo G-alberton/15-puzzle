@@ -366,6 +366,70 @@ function clearBoard() {
   render();
 }
 
+function dir(emptyPos, tilePos) {
+  const d = tilePos - emptyPos;
+  if (d === -4) return '↑';
+  if (d ===  4) return '↓';
+  if (d === -1) return '←';
+  if (d ===  1) return '→';
+  return '?';
+}
+
+function buildMoveLog(moves) {
+  const temp   = [...board];
+  const arrows = [];
+  const steps  = [];
+
+  moves.forEach((tilePos, i) => {
+    const emptyPos = temp.indexOf(0);
+    const piece    = temp[tilePos];
+    const arrow    = dir(emptyPos, tilePos);
+
+    arrows.push(arrow);
+
+    steps.push({
+      step:  i + 1,
+      piece,
+      arrow
+    });
+
+    [temp[emptyPos], temp[tilePos]] = [temp[tilePos], temp[emptyPos]];
+  });
+
+  return { arrows, steps };
+}
+
+function showMoveLog(moves) {
+  const { arrows, steps } = buildMoveLog(moves);
+
+  document.getElementById('move-log-arrows').textContent =
+    arrows.join(' ');
+
+  document.getElementById('move-log-count').textContent =
+    moves.length + ' movimentos';
+
+  const tbody = document.getElementById('move-log-body');
+  tbody.innerHTML = '';
+
+  steps.forEach(({ step, piece, arrow }) => {
+    const tr = document.createElement('tr');
+
+    tr.innerHTML =
+      `<td>${step}</td>` +
+      `<td class="piece-cell">${piece}</td>` +
+      `<td class="arrow-cell">${arrow}</td>`;
+
+    tbody.appendChild(tr);
+  });
+
+  document.getElementById('move-log-wrap').classList.remove('hidden');
+}
+
+function hideMoveLog() {
+  const wrap = document.getElementById('move-log-wrap');
+  if (wrap) wrap.classList.add('hidden');
+}
+
 const WORKER_SRC = `
 
 const GOAL_ROW = new Uint8Array(16);
@@ -825,6 +889,8 @@ function solve() {
       document.getElementById('stat-ai').textContent = data.moves.length;
 
       setMessage('✓ solução encontrada', 'win');
+
+      showMoveLog(data.moves);
 
       animateSolution(data.moves);
 

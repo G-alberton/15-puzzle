@@ -68,10 +68,50 @@
       <button id="btn-stop" class="hidden danger">Parar</button>
     </div>
 
-    <div class="path-wrap hidden" id="path-wrap">
-      <div class="path-label">Sequencia da IA</div>
-      <div class="path" id="path"></div>
+    <div id="move-log-wrap" class="move-log hidden">
+
+    <div class="move-log-header">
+      <h3>Histórico da IA</h3>
+
+      <button onclick="hideMoveLog()" class="close-log">
+        ✕
+      </button>
     </div>
+
+    <div class="move-log-info">
+
+      <div class="move-log-counter">
+        <span>Total:</span>
+        <strong id="move-log-count">0 movimentos</strong>
+      </div>
+
+      <div class="move-log-directions">
+        <span>Direções:</span>
+
+        <div id="move-log-arrows"></div>
+      </div>
+
+    </div>
+
+    <div class="move-log-table-wrap">
+
+      <table class="move-log-table">
+
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Peça</th>
+            <th>Movimento</th>
+          </tr>
+        </thead>
+
+        <tbody id="move-log-body"></tbody>
+
+      </table>
+
+    </div>
+
+  </div>
 
   </div>
   <script src="taldaia.js"></script>
